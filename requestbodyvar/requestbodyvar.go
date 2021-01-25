@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
@@ -36,9 +37,11 @@ func (RequestBodyVar) CaddyModule() caddy.ModuleInfo {
 
 // ServeHTTP implements caddyhttp.MiddlewareHandler.
 func (m RequestBodyVar) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp.Handler) error {
-	repl := r.Context().Value(caddy.ReplacerCtxKey).(*caddy.Replacer)
-
 	bodyVars := func(key string) (interface{}, bool) {
+		if !strings.HasPrefix(key, reqBodyReplPrefix) {
+			return nil, false
+		}
+
 		if r == nil || r.Body == nil {
 			return nil, false
 		}
@@ -60,6 +63,7 @@ func (m RequestBodyVar) ServeHTTP(w http.ResponseWriter, r *http.Request, next c
 		return value.String(), true
 	}
 
+	repl := r.Context().Value(caddy.ReplacerCtxKey).(*caddy.Replacer)
 	repl.Map(bodyVars)
 
 	return next.ServeHTTP(w, r)
