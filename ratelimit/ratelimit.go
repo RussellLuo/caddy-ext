@@ -107,9 +107,9 @@ func (rl *RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request, next cadd
 	}
 
 	if keyValue != "" && !rl.zone.Allow(keyValue) {
-		rl.logger.Debug("rate-limit request",
-			zap.String("key", keyValue),
-			zap.Bool("rejected", true),
+		rl.logger.Debug("request is rejected",
+			zap.String("variable", rl.keyVar),
+			zap.String("value", keyValue),
 		)
 
 		w.WriteHeader(rl.RejectStatusCode)
@@ -152,8 +152,8 @@ func parseVar(s string) (v string, err error) {
 		v = fmt.Sprintf("{http.request.header.%s}", name)
 	case "cookie":
 		v = fmt.Sprintf("{http.request.cookie.%s}", name)
-	//case "body":
-	//	v = fmt.Sprintf("{http.request.body.%s}", name)
+	case "body":
+		v = fmt.Sprintf("{http.request.body.%s}", name)
 	case "remote":
 		v = fmt.Sprintf("{http.request.remote.%s}", name)
 	default:

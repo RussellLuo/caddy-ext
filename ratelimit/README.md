@@ -22,6 +22,7 @@ Parameters:
     + `{query.<var>}`
     + `{header.<VAR>}`
     + `{cookie.<var>}`
+    + `{body.<var>}` (requires the [requestbodyvar](https://github.com/RussellLuo/caddy-ext/tree/master/requestbodyvar) extension)
     + `{remote.host}`
     + `{remote.port}`
     + `{remote.ip}`
