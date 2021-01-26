@@ -75,6 +75,12 @@ func (rl *RateLimit) Provision(ctx caddy.Context) (err error) {
 	return nil
 }
 
+// Cleanup cleans up the resources made by rl during provisioning.
+func (rl *RateLimit) Cleanup() error {
+	rl.zone.Purge()
+	return nil
+}
+
 // Validate implements caddy.Validator.
 func (rl *RateLimit) Validate() error {
 	if rl.keyVar == "" {
@@ -226,6 +232,7 @@ func parseRate(rate string) (size time.Duration, limit int, err error) {
 // Interface guards
 var (
 	_ caddy.Provisioner           = (*RateLimit)(nil)
+	_ caddy.CleanerUpper          = (*RateLimit)(nil)
 	_ caddy.Validator             = (*RateLimit)(nil)
 	_ caddyhttp.MiddlewareHandler = (*RateLimit)(nil)
 )

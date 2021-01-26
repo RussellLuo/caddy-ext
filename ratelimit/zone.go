@@ -26,6 +26,11 @@ func NewZone(size int, rateSize time.Duration, rateLimit int64) (*Zone, error) {
 	}, nil
 }
 
+// Purge is used to completely clear the zone.
+func (z *Zone) Purge() {
+	z.limiters.Purge()
+}
+
 func (z *Zone) Allow(key string) bool {
 	lim, _, _ := z.getLimiter(key)
 	return lim.Allow()
