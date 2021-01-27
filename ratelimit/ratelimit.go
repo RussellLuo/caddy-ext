@@ -77,7 +77,9 @@ func (rl *RateLimit) Provision(ctx caddy.Context) (err error) {
 
 // Cleanup cleans up the resources made by rl during provisioning.
 func (rl *RateLimit) Cleanup() error {
-	rl.zone.Purge()
+	if rl.zone != nil {
+		rl.zone.Purge()
+	}
 	return nil
 }
 
@@ -127,9 +129,11 @@ func (rl *RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request, next cadd
 //     {query.<var>}
 //     {header.<VAR>}
 //     {cookie.<var>}
+//     {body.<var>}
 //     {remote.host}
 //     {remote.port}
 //     {remote.ip}
+//
 func parseVar(s string) (v string, err error) {
 	if regexpFullVar.MatchString(s) {
 		// If the variable is already a fully-qualified Caddy placeholder,
