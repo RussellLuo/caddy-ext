@@ -47,6 +47,11 @@ func (RateLimit) CaddyModule() caddy.ModuleInfo {
 
 // Provision implements caddy.Provisioner.
 func (rl *RateLimit) Provision(ctx caddy.Context) (err error) {
+	rl.logger = ctx.Logger(rl)
+	return rl.provision()
+}
+
+func (rl *RateLimit) provision() (err error) {
 	rl.keyVar, err = parseVar(rl.Key)
 	if err != nil {
 		return err
@@ -69,8 +74,6 @@ func (rl *RateLimit) Provision(ctx caddy.Context) (err error) {
 	if rl.RejectStatusCode == 0 {
 		rl.RejectStatusCode = http.StatusTooManyRequests
 	}
-
-	rl.logger = ctx.Logger(rl)
 
 	return nil
 }
