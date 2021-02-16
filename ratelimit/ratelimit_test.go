@@ -38,7 +38,7 @@ func TestRateLimit_ServeHTTP(t *testing.T) {
 		},
 	}
 	for _, c := range cases {
-		c.inRL.provision()
+		_ = c.inRL.provision()
 		//c.inRL.Cleanup()
 
 		var gotStatusCodes []int
