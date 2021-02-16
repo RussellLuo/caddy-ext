@@ -37,6 +37,7 @@ func (z *Zone) Allow(key string) bool {
 }
 
 func (z *Zone) getLimiter(key string) (lim *sw.Limiter, ok, evict bool) {
+	// If there is already a limiter for key, just return it.
 	elem, ok := z.limiters.Peek(key)
 	if ok {
 		return elem.(*sw.Limiter), true, false
@@ -47,6 +48,15 @@ func (z *Zone) getLimiter(key string) (lim *sw.Limiter, ok, evict bool) {
 		// unnecessary to call it later.
 		return sw.NewLocalWindow()
 	})
+	// Try to add lim as the limiter for key.
 	ok, evict = z.limiters.ContainsOrAdd(key, lim)
+
+	if ok {
+		// The limiter for key has been added by someone else just now.
+		// We should use the limiter rather than our lim.
+		elem, _ = z.limiters.Peek(key)
+		lim = elem.(*sw.Limiter)
+	}
+
 	return
 }
