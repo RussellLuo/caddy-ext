@@ -7,6 +7,7 @@ Various Caddy v2 extensions (a.k.a. modules).
 
 - [requestbodyvar](requestbodyvar)
 - [ratelimit](ratelimit)
+- [flagr](flagr)
 
 
 ## License
