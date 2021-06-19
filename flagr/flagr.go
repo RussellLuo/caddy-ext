@@ -41,7 +41,8 @@ type Flagr struct {
 	// The address of the flagr server.
 	URL string `json:"url,omitempty"`
 
-	// Which evaluator to use. Options: "local" or "remote".
+	// Which evaluator to use.
+	// Supported options: "local" or "remote".
 	Evaluator string `json:"evaluator,omitempty"`
 	// The refresh interval of the internal eval cache (only used for the "local" evaluator).
 	RefreshInterval string `json:"refresh_interval,omitempty"`

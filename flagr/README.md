@@ -27,9 +27,11 @@ flagr <url> {
 
 Parameters:
 
-- `<url>`: The address of the flagr server.
-- `<evaluator>`: Which evaluator to use. Defaults to `"local"`.
-- `<refresh_interval>`: The refresh interval of the internal eval cache (only used for the `"local"` evaluator).
+- `<url>`: The address of the Flagr server.
+- `<evaluator>`: Which evaluator to use. Defaults to `"local"`. Supported options:
+    + `"local"`
+    + `"remote"`
+- `<refresh_interval>`: The refresh interval of the internal eval cache (only used for the `"local"` evaluator). Defaults to `"10s"`.
 - `<entity_id>`: The unique ID from the entity, which is used to deterministically at random to evaluate the flag result. Must be a [Caddy variable][2].
     + `{path.<var>}`
     + `{query.<var>}`
@@ -38,7 +40,9 @@ Parameters:
     + `{body.<var>}` (requires the [requestbodyvar](https://github.com/RussellLuo/caddy-ext/tree/master/requestbodyvar) extension)
 - `<entity_context>`: The context parameters (key-value pairs) of the entity, which is used to match the constraints. The value part may be a Caddy variable (see `<entity_id>`).
 - `<flag_keys>`: A list of flag keys to look up.
-- `<bind_variant_keys_to>`: Which element of the request to bind the evaluated variant keys. Defaults to `"header.X-Flagr-Variant"`.
+- `<bind_variant_keys_to>`: Which element of the request to bind the evaluated variant keys. Defaults to `"header.X-Flagr-Variant"`. Supported options:
+    + `"header.<VAR>"`
+    + `"query.<var>"`
 
 
 ## Example
@@ -114,7 +118,7 @@ localhost:8080 {
 
 By leveraging [wrk][4], here are the benchmark results I got on my MacBook:
 
-```
+```bash
 $ wrk -t15 -c200 -d30s 'https://localhost:8080/local?id=1'
 Running 30s test @ https://localhost:8080/local?id=1
   15 threads and 200 connections
@@ -125,7 +129,7 @@ Running 30s test @ https://localhost:8080/local?id=1
 Requests/sec:  19158.69
 Transfer/sec:      1.44MB
 ```
-```
+```bash
 $ wrk -t15 -c200 -d30s 'https://localhost:8080/remote?id=1'
 Running 30s test @ https://localhost:8080/remote?id=1
   15 threads and 200 connections
