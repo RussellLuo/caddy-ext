@@ -208,7 +208,7 @@ func (f *Flagr) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp
 		return next.ServeHTTP(w, r)
 	}
 
-	f.logger.Debug("ready to evaluate the request entity by flagr",
+	f.logger.Debug("ready to evaluate the request entity by Flagr",
 		zap.String("entityID", entityID),
 		zap.Any("entityContext", entityContext),
 	)

@@ -123,23 +123,22 @@ $ wrk -t15 -c200 -d30s 'https://localhost:8080/local?id=1'
 Running 30s test @ https://localhost:8080/local?id=1
   15 threads and 200 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    12.46ms   12.67ms 179.99ms   86.68%
-    Req/Sec     1.29k   270.04     3.03k    72.79%
-  576499 requests in 30.09s, 43.43MB read
-Requests/sec:  19158.69
-Transfer/sec:      1.44MB
+    Latency     7.14ms    8.83ms 161.49ms   90.13%
+    Req/Sec     2.48k   396.11     8.44k    80.79%
+  1106860 requests in 30.10s, 83.39MB read
+Requests/sec:  36769.32
+Transfer/sec:      2.77MB
 ```
 ```bash
 $ wrk -t15 -c200 -d30s 'https://localhost:8080/remote?id=1'
 Running 30s test @ https://localhost:8080/remote?id=1
   15 threads and 200 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    43.11ms   69.84ms   1.01s    89.18%
-    Req/Sec   556.06    221.29     2.88k    76.02%
-  245288 requests in 30.10s, 18.48MB read
-  Socket errors: connect 47, read 0, write 0, timeout 0
-Requests/sec:   8150.25
-Transfer/sec:    628.78KB
+    Latency    48.68ms   97.87ms   1.20s    89.98%
+    Req/Sec   778.59    239.79     1.66k    71.50%
+  348077 requests in 30.10s, 26.22MB read
+Requests/sec:  11564.13
+Transfer/sec:      0.87MB
 ```
 
 

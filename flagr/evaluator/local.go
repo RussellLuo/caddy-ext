@@ -25,6 +25,7 @@ func NewLocal(interval time.Duration, url string) (*Local, error) {
 	var err error
 	onceLocal.Do(func() {
 		// Change the global configuration of Flagr once.
+		config.Config.EvalLoggingEnabled = false
 		config.Config.EvalCacheRefreshInterval = interval
 		config.Config.EvalOnlyMode = true
 		config.Config.DBDriver = "json_http"
