@@ -13,6 +13,7 @@ $ xcaddy build --with github.com/RussellLuo/caddy-ext/flagr
 
 ```
 flagr <url> {
+    evaluator <evaluator> [<refresh_interval>]
     entity_id <entity_id>
     entity_context {
         <key1>    <value1>
@@ -27,6 +28,8 @@ flagr <url> {
 Parameters:
 
 - `<url>`: The address of the flagr server.
+- `<evaluator>`: Which evaluator to use. Defaults to `"local"`.
+- `<refresh_interval>`: The refresh interval of the internal eval cache (only used for the `"local"` evaluator).
 - `<entity_id>`: The unique ID from the entity, which is used to deterministically at random to evaluate the flag result. Must be a [Caddy variable][2].
     + `{path.<var>}`
     + `{query.<var>}`
@@ -78,5 +81,65 @@ $ curl 'https://localhost:8080/bar?id=1'
 ```
 
 
+## Benchmark
+
+Run Flagr locally [with docker][3], and use the following Caddyfile:
+
+```
+localhost:8080 {
+    route /local {
+        flagr http://127.0.0.1:18000/api/v1 {
+            evaluator local
+            entity_id {query.id}
+            entity_context {
+              city CD
+            }
+            flag_keys demo
+        }
+        respond 204
+    }
+    route /remote {
+        flagr http://127.0.0.1:18000/api/v1 {
+            evaluator remote
+            entity_id {query.id}
+            entity_context {
+              city CD
+            }
+            flag_keys demo
+        }
+        respond 204
+    }
+}
+```
+
+By leveraging [wrk][4], here are the benchmark results I got on my MacBook:
+
+```
+$ wrk -t15 -c200 -d30s 'https://localhost:8080/local?id=1'
+Running 30s test @ https://localhost:8080/local?id=1
+  15 threads and 200 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    12.46ms   12.67ms 179.99ms   86.68%
+    Req/Sec     1.29k   270.04     3.03k    72.79%
+  576499 requests in 30.09s, 43.43MB read
+Requests/sec:  19158.69
+Transfer/sec:      1.44MB
+```
+```
+$ wrk -t15 -c200 -d30s 'https://localhost:8080/remote?id=1'
+Running 30s test @ https://localhost:8080/remote?id=1
+  15 threads and 200 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    43.11ms   69.84ms   1.01s    89.18%
+    Req/Sec   556.06    221.29     2.88k    76.02%
+  245288 requests in 30.10s, 18.48MB read
+  Socket errors: connect 47, read 0, write 0, timeout 0
+Requests/sec:   8150.25
+Transfer/sec:    628.78KB
+```
+
+
 [1]: https://github.com/checkr/flagr
 [2]: https://caddyserver.com/docs/caddyfile/concepts#placeholders
+[3]: https://checkr.github.io/flagr/#/home?id=run
+[4]: https://github.com/wg/wrk

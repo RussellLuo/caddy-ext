@@ -6,25 +6,27 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
-	"github.com/checkr/goflagr"
+	"github.com/checkr/flagr/swagger_gen/models"
 	"go.uber.org/zap"
+
+	"github.com/RussellLuo/caddy-ext/flagr/evaluator"
 )
 
 var (
 	regexpFullVar  = regexp.MustCompile(`^\{http\.request\..+\}$`)
 	regexpShortVar = regexp.MustCompile(`^\{(\w+)\.(.+)\}$`)
-
-	// The global API client for the flagr server.
-	globalAPIClient *goflagr.APIClient
-	once            sync.Once
 )
 
 func init() {
 	caddy.RegisterModule(Flagr{})
+}
+
+type Evaluator interface {
+	PostEvaluationBatch(ctx context.Context, req *models.EvaluationBatchRequest) (*models.EvaluationBatchResponse, error)
 }
 
 type ContextValue struct {
@@ -38,6 +40,11 @@ type ContextValue struct {
 type Flagr struct {
 	// The address of the flagr server.
 	URL string `json:"url,omitempty"`
+
+	// Which evaluator to use. Options: "local" or "remote".
+	Evaluator string `json:"evaluator,omitempty"`
+	// The refresh interval of the internal eval cache (only used for the "local" evaluator).
+	RefreshInterval string `json:"refresh_interval,omitempty"`
 
 	// The unique ID from the entity, which is used to deterministically at
 	// random to evaluate the flag result. Must be a Caddy variable.
@@ -55,6 +62,7 @@ type Flagr struct {
 	BindVariantKeysTo string `json:"bind_variant_keys_to,omitempty"`
 
 	logger         *zap.Logger
+	evaluator      Evaluator
 	entityIDVar    string
 	entityContext  map[string]ContextValue
 	bindToLocation string
@@ -76,6 +84,34 @@ func (f *Flagr) Provision(ctx caddy.Context) (err error) {
 }
 
 func (f *Flagr) provision() (err error) {
+	if f.URL == "" {
+		return fmt.Errorf("empty url")
+	}
+
+	refreshInterval := 10 * time.Second
+	if f.RefreshInterval != "" {
+		d, err := time.ParseDuration(f.RefreshInterval)
+		if err != nil {
+			return err
+		}
+		refreshInterval = d
+	}
+
+	if f.Evaluator == "" {
+		f.Evaluator = "local"
+	}
+	switch f.Evaluator {
+	case "local":
+		f.evaluator, err = evaluator.NewLocal(refreshInterval, f.URL)
+		if err != nil {
+			return err
+		}
+	case "remote":
+		f.evaluator = evaluator.NewRemote(f.URL)
+	default:
+		return fmt.Errorf("unsupported evaluator %q", f.Evaluator)
+	}
+
 	f.entityIDVar, err = parseVar(f.EntityID)
 	if err != nil {
 		return err
@@ -119,15 +155,6 @@ func (f *Flagr) provision() (err error) {
 	}
 	f.bindToLocation, f.bindToName = parts[0], parts[1]
 
-	once.Do(func() {
-		// Initialize the global API client once.
-		globalAPIClient = goflagr.NewAPIClient(&goflagr.Configuration{
-			BasePath:      f.URL,
-			DefaultHeader: make(map[string]string),
-			UserAgent:     "Caddy/go",
-		})
-	})
-
 	return nil
 }
 
@@ -153,10 +180,6 @@ func (f *Flagr) Validate() error {
 	}
 	if f.bindToName == "" {
 		return fmt.Errorf("emtpy name from bind_variant_key_to")
-	}
-
-	if f.URL == "" {
-		return fmt.Errorf("empty url")
 	}
 
 	return nil
@@ -189,11 +212,11 @@ func (f *Flagr) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp
 		zap.Any("entityContext", entityContext),
 	)
 
-	evalResp, _, err := globalAPIClient.EvaluationApi.PostEvaluationBatch(context.Background(), goflagr.EvaluationBatchRequest{
-		Entities: []goflagr.EvaluationEntity{
+	resp, err := f.evaluator.PostEvaluationBatch(context.Background(), &models.EvaluationBatchRequest{
+		Entities: []*models.EvaluationEntity{
 			{
 				EntityID:      entityID,
-				EntityContext: &entityContext,
+				EntityContext: entityContext,
 			},
 		},
 		FlagKeys: f.FlagKeys,
@@ -207,7 +230,7 @@ func (f *Flagr) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp
 		return next.ServeHTTP(w, r)
 	}
 
-	for _, er := range evalResp.EvaluationResults {
+	for _, er := range resp.EvaluationResults {
 		if er.VariantKey != "" {
 			variant := er.FlagKey + "." + er.VariantKey
 			switch f.bindToLocation {

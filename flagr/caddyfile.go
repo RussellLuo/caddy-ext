@@ -22,6 +22,7 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 // UnmarshalCaddyfile implements caddyfile.Unmarshaler. Syntax:
 //
 // flagr <url> {
+//     evaluator <evaluator> [<refresh_interval>]
 //     entity_id <entity_id>
 //     entity_context {
 //         <key1>    <value1>
@@ -41,6 +42,16 @@ func (f *Flagr) UnmarshalCaddyfile(d *caddyfile.Dispenser) (err error) {
 
 		for nesting := d.Nesting(); d.NextBlock(nesting); {
 			switch d.Val() {
+			case "evaluator":
+				if d.NextArg() {
+					f.Evaluator = d.Val()
+				}
+				if f.Evaluator == "local" {
+					if d.NextArg() {
+						f.RefreshInterval = d.Val()
+					}
+				}
+
 			case "entity_id":
 				if !d.NextArg() {
 					return d.ArgErr()
