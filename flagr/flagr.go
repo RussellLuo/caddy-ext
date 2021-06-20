@@ -223,7 +223,7 @@ func (f *Flagr) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp
 		FlagKeys: f.FlagKeys,
 	})
 	if err != nil {
-		f.logger.Error("failed to evaluate the request entity by flagr",
+		f.logger.Error("failed to evaluate the request entity by Flagr",
 			zap.String("entityID", entityID),
 			zap.Any("originalEntityContext", f.EntityContext),
 			zap.Error(err),

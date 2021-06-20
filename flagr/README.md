@@ -1,6 +1,6 @@
 # flagr
 
-A Caddy v2 extension to apply Feature Flags for HTTP requests by using [Flagr][1].
+A Caddy v2 extension to apply [Feature Flags][1] for HTTP requests by using [Flagr][2].
 
 
 ## Installation
@@ -32,7 +32,7 @@ Parameters:
     + `"local"`
     + `"remote"`
 - `<refresh_interval>`: The refresh interval of the internal eval cache (only used for the `"local"` evaluator). Defaults to `"10s"`.
-- `<entity_id>`: The unique ID from the entity, which is used to deterministically at random to evaluate the flag result. Must be a [Caddy variable][2].
+- `<entity_id>`: The unique ID from the entity, which is used to deterministically at random to evaluate the flag result. Must be a [Caddy variable][3].
     + `{path.<var>}`
     + `{query.<var>}`
     + `{header.<VAR>}`
@@ -85,38 +85,49 @@ $ curl 'https://localhost:8080/bar?id=1'
 ```
 
 
-## Benchmark
+## Local Evaluator vs Remote Evaluator
 
-Run Flagr locally [with docker][3], and use the following Caddyfile:
+### Internals
 
-```
-localhost:8080 {
-    route /local {
-        flagr http://127.0.0.1:18000/api/v1 {
-            evaluator local
-            entity_id {query.id}
-            entity_context {
-              city CD
+![local-vs-remote](local-vs-remote.png)
+
+### Benchmarks
+
+Prerequisites:
+
+- Run Flagr locally [with docker][4]
+- Use the same Flagr config as in Example
+- Run Caddy with the following Caddyfile:
+
+    ```
+    localhost:8080 {
+        route /local {
+            flagr http://127.0.0.1:18000/api/v1 {
+                evaluator local
+                entity_id {query.id}
+                entity_context {
+                  city CD
+                }
+                flag_keys demo
             }
-            flag_keys demo
+            respond 204
         }
-        respond 204
-    }
-    route /remote {
-        flagr http://127.0.0.1:18000/api/v1 {
-            evaluator remote
-            entity_id {query.id}
-            entity_context {
-              city CD
+        route /remote {
+            flagr http://127.0.0.1:18000/api/v1 {
+                evaluator remote
+                entity_id {query.id}
+                entity_context {
+                  city CD
+                }
+                flag_keys demo
             }
-            flag_keys demo
+            respond 204
         }
-        respond 204
     }
-}
-```
+    ```
+- Install the benchmarking tool [wrk][5]
 
-By leveraging [wrk][4], here are the benchmark results I got on my MacBook:
+Here are the benchmark results I got on my MacBook:
 
 ```bash
 $ wrk -t15 -c200 -d30s 'https://localhost:8080/local?id=1'
@@ -142,7 +153,8 @@ Transfer/sec:      0.87MB
 ```
 
 
-[1]: https://github.com/checkr/flagr
-[2]: https://caddyserver.com/docs/caddyfile/concepts#placeholders
-[3]: https://checkr.github.io/flagr/#/home?id=run
-[4]: https://github.com/wg/wrk
+[1]: https://martinfowler.com/articles/feature-toggles.html
+[2]: https://github.com/checkr/flagr
+[3]: https://caddyserver.com/docs/caddyfile/concepts#placeholders
+[4]: https://checkr.github.io/flagr/#/home?id=run
+[5]: https://github.com/wg/wrk

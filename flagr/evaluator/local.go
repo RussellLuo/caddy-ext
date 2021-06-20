@@ -17,8 +17,7 @@ var (
 )
 
 type Local struct {
-	cache *handler.EvalCache
-	eval  handler.Eval
+	eval handler.Eval
 }
 
 func NewLocal(interval time.Duration, url string) (*Local, error) {
@@ -33,7 +32,7 @@ func NewLocal(interval time.Duration, url string) (*Local, error) {
 		// see https://checkr.github.io/flagr/api_docs/#operation/getExportEvalCacheJSON
 		config.Config.DBConnectionStr = url + "/export/eval_cache/json"
 
-		// Start singletonEvalCache once.
+		// Start the singleton eval cache once.
 		defer func() {
 			// EvalCache.Start() may panic if it fails.
 			if r := recover(); r != nil {
@@ -42,12 +41,10 @@ func NewLocal(interval time.Duration, url string) (*Local, error) {
 				}
 			}
 		}()
-		cache := handler.GetEvalCache()
-		cache.Start()
+		handler.GetEvalCache().Start()
 
 		singletonLocal = &Local{
-			cache: cache,
-			eval:  handler.NewEval(),
+			eval: handler.NewEval(),
 		}
 	})
 	return singletonLocal, err
