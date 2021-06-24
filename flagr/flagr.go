@@ -113,9 +113,11 @@ func (f *Flagr) provision() (err error) {
 		return fmt.Errorf("unsupported evaluator %q", f.Evaluator)
 	}
 
-	f.entityIDVar, err = parseVar(f.EntityID)
-	if err != nil {
-		return err
+	if f.EntityID != "" {
+		f.entityIDVar, err = parseVar(f.EntityID)
+		if err != nil {
+			return err
+		}
 	}
 
 	f.entityContext = make(map[string]ContextValue)
@@ -166,9 +168,6 @@ func (f *Flagr) Cleanup() error {
 
 // Validate implements caddy.Validator.
 func (f *Flagr) Validate() error {
-	if f.entityIDVar == "" {
-		return fmt.Errorf("invalid entity_id")
-	}
 	if len(f.entityContext) == 0 {
 		return fmt.Errorf("invalid entity_context")
 	}
@@ -190,7 +189,7 @@ func (f *Flagr) Validate() error {
 func (f *Flagr) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp.Handler) error {
 	repl := r.Context().Value(caddy.ReplacerCtxKey).(*caddy.Replacer)
 	entityID := repl.ReplaceAll(f.entityIDVar, "")
-	if entityID == "" {
+	if f.entityIDVar != "" && entityID == "" {
 		f.logger.Info("entityID is evaluated to be empty",
 			zap.Any("entityIDVar", f.entityIDVar),
 			zap.Any("originalEntityContext", f.EntityContext),

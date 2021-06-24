@@ -32,7 +32,7 @@ Parameters:
     + `"local"`
     + `"remote"`
 - `<refresh_interval>`: The refresh interval of the internal eval cache (only used for the `"local"` evaluator). Defaults to `"10s"`.
-- `<entity_id>`: The unique ID from the entity, which is used to deterministically at random to evaluate the flag result. Must be a [Caddy variable][3].
+- `<entity_id>`: The unique ID from the entity, which is used to deterministically at random to evaluate the flag result. Defaults to `""` (Flagr [will randomly generate one][3]), and it must be a [Caddy variable][4] if provided:
     + `{path.<var>}`
     + `{query.<var>}`
     + `{header.<VAR>}`
@@ -95,7 +95,7 @@ $ curl 'https://localhost:8080/bar?id=1'
 
 Prerequisites:
 
-- Run Flagr locally [with docker][4]
+- Run Flagr locally [with docker][5]
 - Use the same Flagr config as in Example
 - Run Caddy with the following Caddyfile:
 
@@ -125,7 +125,7 @@ Prerequisites:
         }
     }
     ```
-- Install the benchmarking tool [wrk][5]
+- Install the benchmarking tool [wrk][6]
 
 Here are the benchmark results I got on my MacBook:
 
@@ -155,6 +155,7 @@ Transfer/sec:      0.87MB
 
 [1]: https://martinfowler.com/articles/feature-toggles.html
 [2]: https://github.com/checkr/flagr
-[3]: https://caddyserver.com/docs/caddyfile/concepts#placeholders
-[4]: https://checkr.github.io/flagr/#/home?id=run
-[5]: https://github.com/wg/wrk
+[3]: https://checkr.github.io/flagr/api_docs/#operation/postEvaluation
+[4]: https://caddyserver.com/docs/caddyfile/concepts#placeholders
+[5]: https://checkr.github.io/flagr/#/home?id=run
+[6]: https://github.com/wg/wrk
