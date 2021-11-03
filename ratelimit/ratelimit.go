@@ -12,12 +12,15 @@ import (
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"go.uber.org/zap"
+	"inet.af/netaddr"
 )
 
 var (
 	regexpFullVar  = regexp.MustCompile(`^\{http\.request\..+\}$`)
 	regexpShortVar = regexp.MustCompile(`^\{(\w+)\.(.+)\}$`)
-	regexpRate     = regexp.MustCompile(`^(\d+)r/(s|m)$`)
+	// "host_prefix.<bits>" or "ip_prefix.<bits>"
+	regexpPrefixVar = regexp.MustCompile(`^(host_prefix|ip_prefix)\.([0-9]+)$`)
+	regexpRate      = regexp.MustCompile(`^(\d+)r/(s|m)$`)
 )
 
 func init() {
@@ -31,7 +34,7 @@ type RateLimit struct {
 	ZoneSize         int    `json:"zone_size,omitempty"`
 	RejectStatusCode int    `json:"reject_status,omitempty"`
 
-	keyVar string
+	keyVar *Var
 	zone   *Zone
 
 	logger *zap.Logger
@@ -52,7 +55,7 @@ func (rl *RateLimit) Provision(ctx caddy.Context) (err error) {
 }
 
 func (rl *RateLimit) provision() (err error) {
-	rl.keyVar, err = parseVar(rl.Key)
+	rl.keyVar, err = ParseVar(rl.Key)
 	if err != nil {
 		return err
 	}
@@ -88,7 +91,7 @@ func (rl *RateLimit) Cleanup() error {
 
 // Validate implements caddy.Validator.
 func (rl *RateLimit) Validate() error {
-	if rl.keyVar == "" {
+	if rl.keyVar == nil {
 		return fmt.Errorf("no key variable")
 	}
 	if rl.zone == nil {
@@ -102,10 +105,10 @@ func (rl *RateLimit) Validate() error {
 
 // ServeHTTP implements caddyhttp.MiddlewareHandler.
 func (rl *RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp.Handler) error {
-	keyValue, err := getVarValue(r, rl.keyVar)
+	keyValue, err := rl.keyVar.Evaluate(r)
 	if err != nil {
 		rl.logger.Error("failed to evaluate variable",
-			zap.String("variable", rl.keyVar),
+			zap.String("variable", rl.keyVar.Raw),
 			zap.Error(err),
 		)
 		return next.ServeHTTP(w, r)
@@ -113,7 +116,7 @@ func (rl *RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request, next cadd
 
 	if keyValue != "" && !rl.zone.Allow(keyValue) {
 		rl.logger.Debug("request is rejected",
-			zap.String("variable", rl.keyVar),
+			zap.String("variable", rl.keyVar.Raw),
 			zap.String("value", keyValue),
 		)
 
@@ -124,7 +127,13 @@ func (rl *RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request, next cadd
 	return next.ServeHTTP(w, r)
 }
 
-// parseVar transforms shorthand variables into Caddy-style placeholders.
+type Var struct {
+	Raw  string
+	Name string
+	Bits uint8
+}
+
+// ParseVar transforms shorthand variables into Caddy-style placeholders.
 //
 // Examples for shorthand variables:
 //
@@ -136,78 +145,106 @@ func (rl *RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request, next cadd
 //     {remote.host}
 //     {remote.port}
 //     {remote.ip}
+//     {remote.host_prefix.<bits>}
+//     {remote.ip_prefix.<bits>}
 //
-func parseVar(s string) (v string, err error) {
+func ParseVar(s string) (*Var, error) {
+	v := &Var{Raw: s}
 	if regexpFullVar.MatchString(s) {
 		// If the variable is already a fully-qualified Caddy placeholder,
 		// return it as is.
-		return s, nil
+		v.Name = s
+		return v, nil
 	}
 
 	result := regexpShortVar.FindStringSubmatch(s)
 	if len(result) != 3 {
-		return "", fmt.Errorf("invalid key variable: %q", s)
+		return nil, fmt.Errorf("invalid key variable: %q", s)
 	}
 	location, name := result[1], result[2]
 
 	switch location {
 	case "path":
-		v = fmt.Sprintf("{http.request.uri.path.%s}", name)
+		v.Name = fmt.Sprintf("{http.request.uri.path.%s}", name)
 	case "query":
-		v = fmt.Sprintf("{http.request.uri.query.%s}", name)
+		v.Name = fmt.Sprintf("{http.request.uri.query.%s}", name)
 	case "header":
-		v = fmt.Sprintf("{http.request.header.%s}", name)
+		v.Name = fmt.Sprintf("{http.request.header.%s}", name)
 	case "cookie":
-		v = fmt.Sprintf("{http.request.cookie.%s}", name)
+		v.Name = fmt.Sprintf("{http.request.cookie.%s}", name)
 	case "body":
-		v = fmt.Sprintf("{http.request.body.%s}", name)
+		v.Name = fmt.Sprintf("{http.request.body.%s}", name)
 	case "remote":
-		v = fmt.Sprintf("{http.request.remote.%s}", name)
+		if name == "host" || name == "ip" {
+			v.Name = fmt.Sprintf("{http.request.remote.%s}", name)
+			return v, nil
+		}
+
+		r := regexpPrefixVar.FindStringSubmatch(name)
+		if len(r) != 3 {
+			return nil, fmt.Errorf("invalid key variable: %q", s)
+		}
+
+		v.Name = fmt.Sprintf("{http.request.remote.%s}", r[1])
+
+		if r[2] == "" {
+			return nil, fmt.Errorf("invalid key variable: %q", s)
+		}
+		bits, err := strconv.ParseUint(r[2], 10, 8)
+		if err != nil {
+			return nil, err
+		}
+		v.Bits = uint8(bits)
 	default:
-		err = fmt.Errorf("unrecognized key variable: %q", s)
+		return nil, fmt.Errorf("unrecognized key variable: %q", s)
 	}
 
-	return
+	return v, nil
 }
 
-func getVarValue(r *http.Request, name string) (v string, err error) {
-	switch name {
+func (v *Var) Evaluate(r *http.Request) (value string, err error) {
+	switch v.Name {
 	case "{http.request.remote.ip}":
-		var ip net.IP
-		ip, err = getClientIP(r)
+		ip, err := getClientIP(r, true)
 		if err != nil {
 			return "", err
 		}
-		v = ip.String()
+		return ip.String(), nil
+	case "{http.request.remote.host_prefix}":
+		return v.evaluatePrefix(r, false)
+	case "{http.request.remote.ip_prefix}":
+		return v.evaluatePrefix(r, true)
 	default:
 		repl := r.Context().Value(caddy.ReplacerCtxKey).(*caddy.Replacer)
-		v = repl.ReplaceAll(name, "")
+		value = repl.ReplaceAll(v.Name, "")
+		return value, nil
 	}
-	return
 }
 
-// This function is borrowed from Caddy.
-// See https://github.com/caddyserver/caddy/blob/3366384d9347447632ac334ffbbe35fb18738b90/modules/caddyhttp/matchers.go#L844-L860
-func getClientIP(r *http.Request) (net.IP, error) {
-	var remote string
-	if fwdFor := r.Header.Get("X-Forwarded-For"); fwdFor != "" {
-		remote = strings.TrimSpace(strings.Split(fwdFor, ",")[0])
+func (v *Var) evaluatePrefix(r *http.Request, forwarded bool) (value string, err error) {
+	ip, err := getClientIP(r, forwarded)
+	if err != nil {
+		return "", err
 	}
-	if remote == "" {
-		remote = r.RemoteAddr
+	prefix, err := ip.Prefix(v.Bits)
+	if err != nil {
+		return "", err
 	}
+	return prefix.Masked().String(), nil
+}
 
+func getClientIP(r *http.Request, forwarded bool) (netaddr.IP, error) {
+	remote := r.RemoteAddr
+	if forwarded {
+		if fwdFor := r.Header.Get("X-Forwarded-For"); fwdFor != "" {
+			remote = strings.TrimSpace(strings.Split(fwdFor, ",")[0])
+		}
+	}
 	ipStr, _, err := net.SplitHostPort(remote)
 	if err != nil {
 		ipStr = remote // OK; probably didn't have a port
 	}
-
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		return nil, fmt.Errorf("invalid client IP address: %s", ipStr)
-	}
-
-	return ip, nil
+	return netaddr.ParseIP(ipStr)
 }
 
 func parseRate(rate string) (size time.Duration, limit int, err error) {
