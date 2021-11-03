@@ -29,10 +29,32 @@ func init() {
 
 // RateLimit implements a handler for rate-limiting.
 type RateLimit struct {
-	Key              string `json:"key,omitempty"`
-	Rate             string `json:"rate,omitempty"`
-	ZoneSize         int    `json:"zone_size,omitempty"`
-	RejectStatusCode int    `json:"reject_status,omitempty"`
+	// The variable used to differentiate one client from another.
+	//
+	// Currently supported variables:
+	//     - `{path.<var>}`
+	//     - `{query.<var>}`
+	//     - `{header.<VAR>}`
+	//     - `{cookie.<var>}`
+	//     - `{body.<var>}` (requires the [requestbodyvar](https://github.com/RussellLuo/caddy-ext/tree/master/requestbodyvar) extension)
+	//     - `{remote.host}` (ignores the `X-Forwarded-For` header)
+	//     - `{remote.port}`
+	//     - `{remote.ip}` (prefers the first in IP the `X-Forwarded-For` header)
+	//     - `{remote.host_prefix.<bits>}` (CIDR block version of `{remote.host}`)
+	//     - `{remote.ip_prefix.<bits>}` (CIDR block version of `{remote.ip}`)
+	Key string `json:"key,omitempty"`
+
+	// The request rate limit (per key value) specified in requests
+	// per second (r/s) or requests per minute (r/m).
+	Rate string `json:"rate,omitempty"`
+
+	// The size (i.e. the number of key values) of the LRU zone that
+	// keeps states of these key values. Defaults to 10,000.
+	ZoneSize int `json:"zone_size,omitempty"`
+
+	// The HTTP status code of the response when a client exceeds the rate.
+	// Defaults to 429 (Too Many Requests).
+	RejectStatusCode int `json:"reject_status,omitempty"`
 
 	keyVar *Var
 	zone   *Zone
