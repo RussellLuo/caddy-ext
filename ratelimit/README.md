@@ -12,7 +12,7 @@ $ xcaddy build --with github.com/RussellLuo/caddy-ext/ratelimit
 ## Caddyfile Syntax
 
 ```
-rate_limit <key> <rate> [<zone_size> [<reject_status>]]
+rate_limit [<matcher>] <key> <rate> [<zone_size> [<reject_status>]]
 ```
 
 Parameters:

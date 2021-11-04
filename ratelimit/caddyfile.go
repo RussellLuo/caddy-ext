@@ -14,7 +14,7 @@ func init() {
 
 // parseCaddyfile sets up a handler for rate-limiting from Caddyfile tokens. Syntax:
 //
-//     rate_limit <key> <rate> [<zone_size> [<reject_status>]]
+//     rate_limit [<matcher>] <key> <rate> [<zone_size> [<reject_status>]]
 //
 // Parameters:
 // - <key>: The variable used to differentiate one client from another.
