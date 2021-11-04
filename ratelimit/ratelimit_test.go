@@ -98,6 +98,20 @@ func TestParseVar(t *testing.T) {
 			},
 		},
 		{
+			in: "{remote.host}",
+			want: &Var{
+				Raw:  "{remote.host}",
+				Name: "{http.request.remote.host}",
+			},
+		},
+		{
+			in: "{remote.port}",
+			want: &Var{
+				Raw:  "{remote.port}",
+				Name: "{http.request.remote.port}",
+			},
+		},
+		{
 			in: "{remote.ip}",
 			want: &Var{
 				Raw:  "{remote.ip}",
@@ -187,6 +201,16 @@ func TestVar_Evaluate(t *testing.T) {
 				return req
 			},
 			wantValue: "192.0.2.1",
+		},
+		{
+			name: "peer port",
+			inVar: &Var{
+				Name: "{http.request.remote.port}",
+			},
+			inReq: func() *http.Request {
+				return httptest.NewRequest(http.MethodGet, "/", nil)
+			},
+			wantValue: "1234",
 		},
 		{
 			name: "forwarded ip",

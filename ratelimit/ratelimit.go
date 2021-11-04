@@ -39,7 +39,7 @@ type RateLimit struct {
 	//     - `{body.<var>}` (requires the [requestbodyvar](https://github.com/RussellLuo/caddy-ext/tree/master/requestbodyvar) extension)
 	//     - `{remote.host}` (ignores the `X-Forwarded-For` header)
 	//     - `{remote.port}`
-	//     - `{remote.ip}` (prefers the first in IP the `X-Forwarded-For` header)
+	//     - `{remote.ip}` (prefers the first IP in the `X-Forwarded-For` header)
 	//     - `{remote.host_prefix.<bits>}` (CIDR block version of `{remote.host}`)
 	//     - `{remote.ip_prefix.<bits>}` (CIDR block version of `{remote.ip}`)
 	Key string `json:"key,omitempty"`
@@ -197,7 +197,7 @@ func ParseVar(s string) (*Var, error) {
 	case "body":
 		v.Name = fmt.Sprintf("{http.request.body.%s}", name)
 	case "remote":
-		if name == "host" || name == "ip" {
+		if name == "host" || name == "port" || name == "ip" {
 			v.Name = fmt.Sprintf("{http.request.remote.%s}", name)
 			return v, nil
 		}

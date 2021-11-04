@@ -25,7 +25,7 @@ Parameters:
     + `{body.<var>}` (requires the [requestbodyvar](https://github.com/RussellLuo/caddy-ext/tree/master/requestbodyvar) extension)
     + `{remote.host}` (ignores the `X-Forwarded-For` header)
     + `{remote.port}`
-    + `{remote.ip}` (prefers the first in IP the `X-Forwarded-For` header)
+    + `{remote.ip}` (prefers the first IP in the `X-Forwarded-For` header)
     + `{remote.host_prefix.<bits>}` (CIDR block version of `{remote.host}`)
     + `{remote.ip_prefix.<bits>}` (CIDR block version of `{remote.ip}`)
 - `<rate>`: The request rate limit (per key value) specified in requests per second (r/s) or requests per minute (r/m).
