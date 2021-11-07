@@ -28,20 +28,26 @@ func init() {
 }
 
 // RateLimit implements a handler for rate-limiting.
+//
+// If a client exceeds the rate limit, an HTTP error with status `<reject_status>` will
+// be returned. This error can be handled using the conventional error handlers.
+// See [handle_errors](https://caddyserver.com/docs/caddyfile/directives/handle_errors)
+// for how to set up error handlers.
 type RateLimit struct {
 	// The variable used to differentiate one client from another.
 	//
 	// Currently supported variables:
-	//     - `{path.<var>}`
-	//     - `{query.<var>}`
-	//     - `{header.<VAR>}`
-	//     - `{cookie.<var>}`
-	//     - `{body.<var>}` (requires the [requestbodyvar](https://github.com/RussellLuo/caddy-ext/tree/master/requestbodyvar) extension)
-	//     - `{remote.host}` (ignores the `X-Forwarded-For` header)
-	//     - `{remote.port}`
-	//     - `{remote.ip}` (prefers the first IP in the `X-Forwarded-For` header)
-	//     - `{remote.host_prefix.<bits>}` (CIDR block version of `{remote.host}`)
-	//     - `{remote.ip_prefix.<bits>}` (CIDR block version of `{remote.ip}`)
+	//
+	// - `{path.<var>}`
+	// - `{query.<var>}`
+	// - `{header.<VAR>}`
+	// - `{cookie.<var>}`
+	// - `{body.<var>}` (requires the [requestbodyvar](https://github.com/RussellLuo/caddy-ext/tree/master/requestbodyvar) extension)
+	// - `{remote.host}` (ignores the `X-Forwarded-For` header)
+	// - `{remote.port}`
+	// - `{remote.ip}` (prefers the first IP in the `X-Forwarded-For` header)
+	// - `{remote.host_prefix.<bits>}` (CIDR block version of `{remote.host}`)
+	// - `{remote.ip_prefix.<bits>}` (CIDR block version of `{remote.ip}`)
 	Key string `json:"key,omitempty"`
 
 	// The request rate limit (per key value) specified in requests
@@ -143,7 +149,8 @@ func (rl *RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request, next cadd
 		)
 
 		w.WriteHeader(rl.RejectStatusCode)
-		return nil
+		// Return an error to invoke possible error handlers.
+		return caddyhttp.Error(rl.RejectStatusCode, nil)
 	}
 
 	return next.ServeHTTP(w, r)
@@ -159,16 +166,16 @@ type Var struct {
 //
 // Examples for shorthand variables:
 //
-//     {path.<var>}
-//     {query.<var>}
-//     {header.<VAR>}
-//     {cookie.<var>}
-//     {body.<var>}
-//     {remote.host}
-//     {remote.port}
-//     {remote.ip}
-//     {remote.host_prefix.<bits>}
-//     {remote.ip_prefix.<bits>}
+// - `{path.<var>}`
+// - `{query.<var>}`
+// - `{header.<VAR>}`
+// - `{cookie.<var>}`
+// - `{body.<var>}`
+// - `{remote.host}`
+// - `{remote.port}`
+// - `{remote.ip}`
+// - `{remote.host_prefix.<bits>}`
+// - `{remote.ip_prefix.<bits>}`
 //
 func ParseVar(s string) (*Var, error) {
 	v := &Var{Raw: s}

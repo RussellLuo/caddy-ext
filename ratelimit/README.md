@@ -58,7 +58,7 @@ $ curl -w "%{http_code}" 'https://localhost:8080/foo?id=1'
 429
 ```
 
-An extra request with another value for the request parameter `id` will not be limited:
+An extra request with other value for the request parameter `id` will not be limited:
 
 ```bash
 $ curl -w "%{http_code}" 'https://localhost:8080/foo?id=2'
