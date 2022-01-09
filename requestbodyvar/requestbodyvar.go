@@ -12,15 +12,15 @@ import (
 	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
 	"github.com/caddyserver/caddy/v2/caddyconfig/httpcaddyfile"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
-	"github.com/tidwall/gjson"
 	"go.uber.org/zap"
 )
 
 const (
-	reqBodyReplPrefix = "http.request.body."
+	fullReqBodyReplPrefix  = "http.request.body."
+	shortReqBodyReplPrefix = "body."
 
-	// For the request's buffered JSON body
-	jsonBufCtxKey caddy.CtxKey = "json_buf"
+	// For the request's buffered body
+	bodyBufferCtxKey caddy.CtxKey = "body_buffer"
 )
 
 func init() {
@@ -51,15 +51,21 @@ func (rbv *RequestBodyVar) Provision(ctx caddy.Context) (err error) {
 // ServeHTTP implements caddyhttp.MiddlewareHandler.
 func (rbv RequestBodyVar) ServeHTTP(w http.ResponseWriter, r *http.Request, next caddyhttp.Handler) error {
 	bodyVars := func(key string) (interface{}, bool) {
-		if !strings.HasPrefix(key, reqBodyReplPrefix) {
+		// We need to declare ctx before the use of the `goto`.
+		// See https://github.com/golang/go/issues/27165 and https://github.com/golang/go/issues/26058.
+		var ctx context.Context
+
+		key, ok := parseKey(key)
+		if !ok || key == "" {
+			rbv.logger.Error("invalid var", zap.String("key", key))
 			return nil, false
 		}
 
 		// First of all, try to get the value from the buffered JSON body, if any.
-		buf, ok := r.Context().Value(jsonBufCtxKey).(*bytes.Buffer)
+		buf, ok := r.Context().Value(bodyBufferCtxKey).(*bytes.Buffer)
 		if ok {
 			rbv.logger.Debug("got from the buffer", zap.String("key", key))
-			return getJSONField(buf, key), true
+			goto Query
 		}
 
 		rbv.logger.Debug("got from the body", zap.String("key", key))
@@ -71,12 +77,9 @@ func (rbv RequestBodyVar) ServeHTTP(w http.ResponseWriter, r *http.Request, next
 		// Close the real body since we will replace it with a fake one.
 		defer r.Body.Close()
 
-		// TODO: Throw an error for non-JSON body?
-
 		// Copy the request body.
 		buf = new(bytes.Buffer)
-		_, err := io.Copy(buf, r.Body)
-		if err != nil {
+		if _, err := io.Copy(buf, r.Body); err != nil {
 			return "", true
 		}
 
@@ -84,10 +87,16 @@ func (rbv RequestBodyVar) ServeHTTP(w http.ResponseWriter, r *http.Request, next
 		r.Body = ioutil.NopCloser(buf)
 
 		// Add the buffered JSON body into the context for the request.
-		ctx := context.WithValue(r.Context(), jsonBufCtxKey, buf)
+		ctx = context.WithValue(r.Context(), bodyBufferCtxKey, buf)
 		r = r.WithContext(ctx)
 
-		return getJSONField(buf, key), true
+	Query:
+		querier, err := newQuerier(buf, r.Header.Get("Content-Type"))
+		if err != nil {
+			rbv.logger.Error("failed to new querier", zap.String("key", key), zap.Error(err))
+			return "", true
+		}
+		return querier.Query(key), true
 	}
 
 	repl := r.Context().Value(caddy.ReplacerCtxKey).(*caddy.Replacer)
@@ -96,14 +105,16 @@ func (rbv RequestBodyVar) ServeHTTP(w http.ResponseWriter, r *http.Request, next
 	return next.ServeHTTP(w, r)
 }
 
-// getJSONField gets the value of the given field from the JSON body,
-// which is buffered in buf.
-func getJSONField(buf *bytes.Buffer, key string) string {
-	if buf == nil {
-		return ""
+func parseKey(s string) (string, bool) {
+	switch {
+	case strings.HasPrefix(s, fullReqBodyReplPrefix):
+		return s[len(fullReqBodyReplPrefix):], true
+	case strings.HasPrefix(s, shortReqBodyReplPrefix):
+		return s[len(shortReqBodyReplPrefix):], true
+	default:
+		// unrecognized
+		return "", false
 	}
-	value := gjson.Get(buf.String(), key[len(reqBodyReplPrefix):])
-	return value.String()
 }
 
 // UnmarshalCaddyfile - this is a no-op
