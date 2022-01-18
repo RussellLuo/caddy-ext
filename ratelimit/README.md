@@ -30,7 +30,7 @@ Parameters:
     + `{remote.ip_prefix.<bits>}` (CIDR block version of `{remote.ip}`)
 - `<rate>`: The request rate limit (per key value) specified in requests per second (r/s) or requests per minute (r/m).
 - `<zone_size>`: The size (i.e. the number of key values) of the LRU zone that keeps states of these key values. Defaults to 10,000.
-- `<reject_status>`: The HTTP status code of the response when a client exceeds the rate. Defaults to 429 (Too Many Requests).
+- `<reject_status>`: The HTTP status code of the response when a client exceeds the rate limit. Defaults to 429 (Too Many Requests).
 
 
 ## Example

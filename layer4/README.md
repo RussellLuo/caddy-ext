@@ -27,7 +27,7 @@ layer4 {
         l4proxy [<upstreams...>] {
             # backends
             to <upstreams...>
-        	 ...
+            ...
     
             # load balancing
             lb_policy       <name> [<options...>]
