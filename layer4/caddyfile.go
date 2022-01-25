@@ -11,6 +11,7 @@ import (
 	"github.com/mholt/caddy-l4/layer4"
 	"github.com/mholt/caddy-l4/modules/l4echo"
 	"github.com/mholt/caddy-l4/modules/l4proxy"
+	"github.com/mholt/caddy-l4/modules/l4proxyprotocol"
 )
 
 func init() {
@@ -43,12 +44,22 @@ func parseLayer4(d *caddyfile.Dispenser, _ interface{}) (interface{}, error) {
 
 			for d.NextBlock(1) {
 				switch d.Val() {
-				case "l4echo":
+				case "l4echo", "echo":
 					server.Routes = append(server.Routes, &layer4.Route{
 						HandlersRaw: []json.RawMessage{caddyconfig.JSONModuleObject(new(l4echo.Handler), "handler", "echo", nil)},
 					})
-				case "l4proxy":
-					handler, err := parseL4proxy(d)
+
+				case "proxy_protocol":
+					handler, err := parseProxyProtocol(d)
+					if err != nil {
+						return nil, err
+					}
+					server.Routes = append(server.Routes, &layer4.Route{
+						HandlersRaw: []json.RawMessage{caddyconfig.JSONModuleObject(handler, "handler", "proxy_protocol", nil)},
+					})
+
+				case "l4proxy", "proxy":
+					handler, err := parseProxy(d)
 					if err != nil {
 						return nil, err
 					}
@@ -69,9 +80,51 @@ func parseLayer4(d *caddyfile.Dispenser, _ interface{}) (interface{}, error) {
 	}, nil
 }
 
-// parseL4proxy sets up a "l4proxy" handler from Caddyfile tokens. Syntax:
+// parseProxyProtocol sets up a "proxy_protocol" handler from Caddyfile tokens. Syntax:
 //
-//   l4proxy [<upstreams...>] {
+//   proxy_protocol {
+//       timeout <duration>
+//       allow   <cidrs...>
+//   }
+//
+func parseProxyProtocol(d *caddyfile.Dispenser) (*l4proxyprotocol.Handler, error) {
+	h := new(l4proxyprotocol.Handler)
+
+	// No same-line options are supported
+	if len(d.RemainingArgs()) > 0 {
+		return nil, d.ArgErr()
+	}
+
+	for nesting := d.Nesting(); d.NextBlock(nesting); {
+		switch d.Val() {
+		case "timeout":
+			if !d.NextArg() {
+				return nil, d.ArgErr()
+			}
+			timeout, err := caddy.ParseDuration(d.Val())
+			if err != nil {
+				return nil, d.Errf("parsing proxy_protocol timeout duration: %v", err)
+			}
+			h.Timeout = caddy.Duration(timeout)
+
+		case "allow":
+			args := d.RemainingArgs()
+			if len(args) == 0 {
+				return nil, d.ArgErr()
+			}
+			h.Allow = append(h.Allow, args...)
+
+		default:
+			return nil, d.ArgErr()
+		}
+	}
+
+	return h, nil
+}
+
+// parseL4proxy sets up a "proxy" handler from Caddyfile tokens. Syntax:
+//
+//   proxy [<upstreams...>] {
 //       # backends
 //       to <upstreams...>
 //   	 ...
@@ -85,9 +138,12 @@ func parseLayer4(d *caddyfile.Dispenser, _ interface{}) (interface{}, error) {
 //       health_port     <port>
 //       health_interval <interval>
 //       health_timeout  <duration>
+//
+//       # sending the PROXY protocol
+//       proxy_protocol <version>
 //   }
 //
-func parseL4proxy(d *caddyfile.Dispenser) (*l4proxy.Handler, error) {
+func parseProxy(d *caddyfile.Dispenser) (*l4proxy.Handler, error) {
 	h := new(l4proxy.Handler)
 
 	appendUpstream := func(addresses ...string) {
@@ -211,6 +267,12 @@ func parseL4proxy(d *caddyfile.Dispenser) (*l4proxy.Handler, error) {
 				return nil, d.Errf("bad timeout value %s: %v", d.Val(), err)
 			}
 			h.HealthChecks.Active.Timeout = caddy.Duration(dur)
+
+		case "proxy_protocol":
+			if !d.NextArg() {
+				return nil, d.ArgErr()
+			}
+			h.ProxyProtocol = d.Val()
 		}
 	}
 

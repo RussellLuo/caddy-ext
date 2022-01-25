@@ -2,10 +2,11 @@
 
 The layer4 Caddyfile (via [global options](https://github.com/caddyserver/caddy/pull/3990)) for [mholt/caddy-l4](https://github.com/mholt/caddy-l4).
 
-Current supported handlers:
+Currently supported handlers:
 
-- l4echo (layer4.handlers.echo)
-- l4proxy (layer4.handlers.proxy)
+- `echo` (layer4.handlers.echo)
+- `proxy_protocol` (layer4.handlers.proxy_protocol)
+- `proxy` (layer4.handlers.proxy)
 
 ## Installation
 
@@ -15,31 +16,61 @@ $ xcaddy build --with github.com/RussellLuo/caddy-ext/layer4
 
 ## Caddyfile Syntax
 
+### The `layer4` global option
+
 ```
 layer4 {
     # server 1
     <listens...> {
-        l4echo
+        <handler>
+        ...
     }
 
     # server 2
     <listens...> {
-        l4proxy [<upstreams...>] {
-            # backends
-            to <upstreams...>
-            ...
-    
-            # load balancing
-            lb_policy       <name> [<options...>]
-            lb_try_duration <duration>
-            lb_try_interval <interval>
-    
-            # active health checking
-            health_port     <port>
-            health_interval <interval>
-            health_timeout  <duration>
-        }
+        <handler>
+        ...
     }
+}
+```
+
+### Handlers
+
+The `echo` handler:
+
+```
+echo
+```
+
+The `proxy_protocol` handler:
+
+```
+proxy_protocol {
+    timeout <duration>
+    allow   <cidrs...>
+}
+```
+
+The `proxy` handler:
+
+```
+proxy [<upstreams...>] {
+    # backends
+    to <upstreams...>
+    ...
+
+    # load balancing
+    lb_policy       <name> [<options...>]
+    lb_try_duration <duration>
+    lb_try_interval <interval>
+
+    # active health checking
+    health_port     <port>
+    health_interval <interval>
+    health_timeout  <duration>
+    
+    # sending the PROXY protocol
+    proxy_protocol <version>
 }
 ```
 
@@ -52,7 +83,7 @@ With the following Caddyfile:
 {
     layer4 {
         :8080 {
-            l4proxy {
+            proxy {
                 to localhost:8081 localhost:8082
                 lb_policy round_robin
                 health_interval 5s

@@ -725,8 +725,8 @@ github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d/go.mod h1:01TrycV0kFyex
 github.com/mholt/acmez v0.1.1/go.mod h1:8qnn8QA/Ewx8E3ZSsmscqsIjhhpxuy9vqdgbX2ceceM=
 github.com/mholt/acmez v1.0.1 h1:J7uquHOKEmo71UDnVApy1sSLA0oF/r+NtVrNzMKKA9I=
 github.com/mholt/acmez v1.0.1/go.mod h1:8qnn8QA/Ewx8E3ZSsmscqsIjhhpxuy9vqdgbX2ceceM=
-github.com/mholt/caddy-l4 v0.0.0-20211118173712-31d74d38aa3a h1:SdsqNlUEMQkU0w75FqBaHAP4CKtfvr4/oGNbhSsr4zo=
-github.com/mholt/caddy-l4 v0.0.0-20211118173712-31d74d38aa3a/go.mod h1:THjbirMPGk2ODmIfBKg/0VEDPVnM8ZXdKRXDJRaPlRE=
+github.com/mholt/caddy-l4 v0.0.0-20220125094439-07bd718906ce h1:m3IZ/y8us8CQhvx+qw0P1X2kwlB3mmJO1he0ESp6IM4=
+github.com/mholt/caddy-l4 v0.0.0-20220125094439-07bd718906ce/go.mod h1:THjbirMPGk2ODmIfBKg/0VEDPVnM8ZXdKRXDJRaPlRE=
 github.com/microcosm-cc/bluemonday v1.0.1/go.mod h1:hsXNsILzKxV+sX77C5b8FSuKF00vh2OMYv+xgHpAMF4=
 github.com/micromdm/scep/v2 v2.1.0 h1:2fS9Rla7qRR266hvUoEauBJ7J6FhgssEiq2OkSKXmaU=
 github.com/micromdm/scep/v2 v2.1.0/go.mod h1:BkF7TkPPhmgJAMtHfP+sFTKXmgzNJgLQlvvGoOExBcc=
