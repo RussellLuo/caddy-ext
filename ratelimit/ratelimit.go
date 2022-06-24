@@ -142,6 +142,8 @@ func (rl *RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request, next cadd
 		return next.ServeHTTP(w, r)
 	}
 
+	w.Header().Add("RateLimit-Policy", rl.zone.RateLimitPolicyHeader())
+
 	if keyValue != "" && !rl.zone.Allow(keyValue) {
 		rl.logger.Debug("request is rejected",
 			zap.String("variable", rl.keyVar.Raw),

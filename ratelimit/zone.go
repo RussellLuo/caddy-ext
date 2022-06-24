@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"time"
+	"fmt"
 
 	sw "github.com/RussellLuo/slidingwindow"
 	"github.com/hashicorp/golang-lru"
@@ -34,6 +35,10 @@ func (z *Zone) Purge() {
 func (z *Zone) Allow(key string) bool {
 	lim, _, _ := z.getLimiter(key)
 	return lim.Allow()
+}
+
+func (z *Zone) RateLimitPolicyHeader() string {
+	return fmt.Sprintf("%d; w=%d", z.rateLimit, int(z.rateSize.Seconds()))
 }
 
 func (z *Zone) getLimiter(key string) (lim *sw.Limiter, ok, evict bool) {
