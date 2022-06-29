@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"go/build"
 	"net/http"
-	"path"
-	"strings"
+	"path/filepath"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
@@ -25,8 +24,17 @@ func init() {
 
 // DynamicHandler implements a handler that can execute plugins (written in Go) dynamically.
 type DynamicHandler struct {
-	// The path to the plugin code in Go.
-	Path string `json:"path,omitempty"`
+	// The plugin name (as well as the Go package name).
+	Name string `json:"name,omitempty"`
+
+	// The root path of the plugin code. Defaults to the directory of the Caddyfile.
+	//
+	// The full path of the plugin code:
+	//
+	// - Root is an absolute path: `<root>/<name>/<name>.go`
+	// - Root is a relative path: `<dir_to_caddyfile>/<root>/<name>/<name>.go`
+	Root string `json:"root,omitempty"`
+
 	// The plugin configuration in JSON format.
 	Config string `json:"config,omitempty"`
 
@@ -60,9 +68,6 @@ func (dh *DynamicHandler) provision() error {
 
 // Validate implements caddy.Validator.
 func (dh *DynamicHandler) Validate() error {
-	if dh.Path == "" {
-		return fmt.Errorf("empty path")
-	}
 	return dh.middleware.Validate()
 }
 
@@ -91,19 +96,19 @@ func (dh *DynamicHandler) eval() (caddymiddleware.Middleware, error) {
 		}
 	}
 
-	if _, err := i.EvalPath(dh.Path); err != nil {
+	pkgPath := filepath.Join(dh.Root, dh.Name, dh.Name+".go")
+	if _, err := i.EvalPath(pkgPath); err != nil {
 		return nil, err
 	}
 
-	basePkg := strings.ReplaceAll(path.Base(path.Dir(dh.Path)), "-", "_")
-	newFunc, err := i.Eval(basePkg + ".New")
+	newFunc, err := i.Eval(dh.Name + ".New")
 	if err != nil {
 		return nil, err
 	}
 
 	newMiddleware, ok := newFunc.Interface().(func() caddymiddleware.Middleware)
 	if !ok {
-		return nil, fmt.Errorf("%s.New does not implement `func() caddymiddleware.Middleware`", basePkg)
+		return nil, fmt.Errorf("%s.New does not implement `func() caddymiddleware.Middleware`", dh.Name)
 	}
 	middleware := newMiddleware()
 

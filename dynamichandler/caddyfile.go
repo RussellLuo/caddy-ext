@@ -13,7 +13,7 @@ func init() {
 	httpcaddyfile.RegisterHandlerDirective("dynamic_handler", parseCaddyfile)
 }
 
-// parseCaddyfile sets up a handler for flagr from Caddyfile tokens.
+// parseCaddyfile sets up a handler from Caddyfile tokens.
 func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error) {
 	dh := new(DynamicHandler)
 	if err := dh.UnmarshalCaddyfile(h.Dispenser); err != nil {
@@ -24,35 +24,54 @@ func parseCaddyfile(h httpcaddyfile.Helper) (caddyhttp.MiddlewareHandler, error)
 
 // UnmarshalCaddyfile implements caddyfile.Unmarshaler. Syntax:
 //
-// dynamic_handler <path> [config]
+// dynamic_handler <name> {
+//     root <root>
+//     config <config>
+// }
 //
 func (dh *DynamicHandler) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
-	if d.Next() {
-		args := d.RemainingArgs()
-		switch len(args) {
-		case 2:
-			dh.Config = args[1]
-			fallthrough
+	if !d.Next() {
+		return d.ArgErr()
+	}
 
-		case 1:
-			path := args[0]
-			if filepath.IsAbs(path) {
-				dh.Path = path
+	if !d.NextArg() {
+		return d.ArgErr()
+	}
+	dh.Name = d.Val()
+
+	// Get the path of the Caddyfile.
+	caddyfilePath, err := filepath.Abs(d.File())
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path of file: %s: %v", d.File(), err)
+	}
+	caddyfileDir := filepath.Dir(caddyfilePath)
+	dh.Root = caddyfileDir // Defaults to the directory of the Caddyfile.
+
+	for nesting := d.Nesting(); d.NextBlock(nesting); {
+		switch d.Val() {
+		case "root":
+			if !d.NextArg() {
+				return d.ArgErr()
+			}
+			root := d.Val()
+
+			if filepath.IsAbs(root) {
+				dh.Root = root
 				return nil
 			}
 
-			// Make the path relative to the current Caddyfile rather than the
+			// Make the path relative to the Caddyfile rather than the
 			// current working directory.
-			absFile, err := filepath.Abs(d.File())
-			if err != nil {
-				return fmt.Errorf("failed to get absolute path of file: %s: %v", d.File(), err)
-			}
-			dh.Path = filepath.Join(filepath.Dir(absFile), path)
+			dh.Root = filepath.Join(caddyfileDir, root)
 
-		default:
-			return d.ArgErr()
+		case "config":
+			if !d.NextArg() {
+				return d.ArgErr()
+			}
+			dh.Config = d.Val()
 		}
 	}
+
 	return nil
 }
 
