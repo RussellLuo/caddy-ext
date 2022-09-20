@@ -12,6 +12,7 @@ import (
 	"github.com/mholt/caddy-l4/modules/l4echo"
 	"github.com/mholt/caddy-l4/modules/l4proxy"
 	"github.com/mholt/caddy-l4/modules/l4proxyprotocol"
+	"github.com/mholt/caddy-l4/modules/l4tls"
 )
 
 func init() {
@@ -66,6 +67,14 @@ func parseLayer4(d *caddyfile.Dispenser, _ interface{}) (interface{}, error) {
 					server.Routes = append(server.Routes, &layer4.Route{
 						HandlersRaw: []json.RawMessage{caddyconfig.JSONModuleObject(handler, "handler", "proxy", nil)},
 					})
+				case "l4tls", "tls":
+					handler, err := parseTLS(d)
+					if err != nil {
+						return nil, err
+					}
+					server.Routes = append(server.Routes, &layer4.Route{
+						HandlersRaw: []json.RawMessage{caddyconfig.JSONModuleObject(handler, "handler", "tls", nil)},
+					})
 				}
 			}
 
@@ -78,6 +87,15 @@ func parseLayer4(d *caddyfile.Dispenser, _ interface{}) (interface{}, error) {
 		Name:  "layer4",
 		Value: caddyconfig.JSON(app, nil),
 	}, nil
+}
+
+// parseTLS sets up a "tls" handler from Caddyfile tokens. The implementation does
+// not support `connection_policies` because it does not implement `caddyfile.Unmarshaler`. Syntax:
+//
+//	tls
+func parseTLS(_ *caddyfile.Dispenser) (*l4tls.Handler, error) {
+	h := new(l4tls.Handler)
+	return h, nil
 }
 
 // parseProxyProtocol sets up a "proxy_protocol" handler from Caddyfile tokens. Syntax:
