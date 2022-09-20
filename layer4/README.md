@@ -7,6 +7,7 @@ Currently supported handlers:
 - `echo` (layer4.handlers.echo)
 - `proxy_protocol` (layer4.handlers.proxy_protocol)
 - `proxy` (layer4.handlers.proxy)
+- `tls` (layer4.handlers.tls)
 
 ## Installation
 
@@ -74,6 +75,11 @@ proxy [<upstreams...>] {
 }
 ```
 
+The `tls` handler:
+
+```
+tls
+```
 
 ## Example
 
