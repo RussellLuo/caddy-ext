@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"go.uber.org/zap"
-	"inet.af/netaddr"
 )
 
 var (
@@ -161,7 +161,7 @@ func (rl *RateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request, next cadd
 type Var struct {
 	Raw  string
 	Name string
-	Bits uint8
+	Bits int
 }
 
 // ParseVar transforms shorthand variables into Caddy-style placeholders.
@@ -178,7 +178,6 @@ type Var struct {
 // - `{remote.ip}`
 // - `{remote.host_prefix.<bits>}`
 // - `{remote.ip_prefix.<bits>}`
-//
 func ParseVar(s string) (*Var, error) {
 	v := &Var{Raw: s}
 	if regexpFullVar.MatchString(s) {
@@ -221,11 +220,11 @@ func ParseVar(s string) (*Var, error) {
 		if r[2] == "" {
 			return nil, fmt.Errorf("invalid key variable: %q", s)
 		}
-		bits, err := strconv.ParseUint(r[2], 10, 8)
+		bits, err := strconv.Atoi(r[2])
 		if err != nil {
 			return nil, err
 		}
-		v.Bits = uint8(bits)
+		v.Bits = bits
 	default:
 		return nil, fmt.Errorf("unrecognized key variable: %q", s)
 	}
@@ -264,7 +263,7 @@ func (v *Var) evaluatePrefix(r *http.Request, forwarded bool) (value string, err
 	return prefix.Masked().String(), nil
 }
 
-func getClientIP(r *http.Request, forwarded bool) (netaddr.IP, error) {
+func getClientIP(r *http.Request, forwarded bool) (netip.Addr, error) {
 	remote := r.RemoteAddr
 	if forwarded {
 		if fwdFor := r.Header.Get("X-Forwarded-For"); fwdFor != "" {
@@ -275,7 +274,7 @@ func getClientIP(r *http.Request, forwarded bool) (netaddr.IP, error) {
 	if err != nil {
 		ipStr = remote // OK; probably didn't have a port
 	}
-	return netaddr.ParseIP(ipStr)
+	return netip.ParseAddr(ipStr)
 }
 
 func parseRate(rate string) (size time.Duration, limit int, err error) {
